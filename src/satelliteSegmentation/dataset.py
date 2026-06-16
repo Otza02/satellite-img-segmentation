@@ -30,14 +30,14 @@ class SatelliteData(Dataset):
             image = np.array(Image.open(image_path))
             mask = np.array(Image.open(mask_path))
 
-            image = torch.from_numpy(image).float()
-            mask = torch.from_numpy(mask).float()
+            image = torch.from_numpy(image).int()
+            mask = torch.from_numpy(mask).int()
 
             X.append(image)
             Y.append(mask)
 
         self.X = torch.stack(X).permute(0, 3, 1, 2)
-        self.Y = torch.stack(Y).permute(0, 3, 1, 2)
+        self.Y = torch.stack(Y).unsqueeze(1)
         print(f"Dataset cargado:")
         print(f"X shape = {self.X.shape}")
         print(f"Y shape = {self.Y.shape}")
@@ -63,7 +63,7 @@ def load_data(
         #     print(f"Se extrajeron los archivos de 'mumbai.zip' en '{(base / "processed").as_posix()}'")
             
     images = path / "images"
-    masks = path / "masks"
+    masks = path / "masks_id"
     return SatelliteData(images, masks)
 
 
