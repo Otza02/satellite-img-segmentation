@@ -51,19 +51,19 @@ class SatelliteData(Dataset):
 
 def load_data(
     folder: Literal["train", "val", "test"],
-    base_path: str | Path = "data",
+    base_path: str | Path = "data/processed",
 ):
     base = Path(base_path) if isinstance(base_path, str) else base_path
-    path = base / "processed" / str(folder)
-    if not Path.exists(path):
-        print(f"No se encontró el directorio 'data/processed/{folder}'")
-        # print("Buscando mumbai.zip para crear directorio")
-        # with ZipFile(Path("data") / "mumbai.zip") as z:
-        #     z.extractall(base / "processed")
-        #     print(f"Se extrajeron los archivos de 'mumbai.zip' en '{(base / "processed").as_posix()}'")
-            
+    path = base / str(folder)
+
     images = path / "images"
+    if not Path.exists(images):
+        raise Exception(f"No se encontró el directorio '{images}'")
+
     masks = path / "masks_id"
+    if not Path.exists(masks):
+        raise Exception(f"No se encontró el directorio '{masks}'")
+
     return SatelliteData(images, masks)
 
 
