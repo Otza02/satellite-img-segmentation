@@ -6,8 +6,12 @@ from torch.utils.data import DataLoader
 
 
 @torch.inference_mode()
-def mean_iou_dice(
-    model: nn.Module, loader: DataLoader, device: str, num_classes: int, eps: float = 1e-7
+def dice_score(
+    model: nn.Module,
+    loader: DataLoader,
+    device: str,
+    num_classes: int,
+    eps: float = 1e-7,
 ):
     model.eval()
 
@@ -26,35 +30,11 @@ def mean_iou_dice(
             target_cls = masks == cls
 
             intersection[cls] += (pred_cls & target_cls).sum()
-            union[cls] += (pred_cls | target_cls).sum()
+            union[cls] += pred_cls.sum() + target_cls.sum()
 
     valid = union > 0
-    iou = (intersection[valid] + eps) / (union[valid] + eps)
     dice = (2 * intersection[valid] + eps) / (union[valid] + eps)
-    return iou.mean().item(), dice.mean().item()
-
-
-@torch.inference_mode()
-def pixel_accuracy(model: nn.Module, loader: DataLoader, device: str):
-    model.eval()
-    correct = 0
-    total = 0
-
-    for images, masks in loader:
-        images = images.to(device)
-        masks = masks.to(device)
-
-        logits = model(images)
-        preds = torch.argmax(logits, dim=1)
-
-        correct += (preds == masks).sum().item()
-        total += masks.numel()
-    return correct / total
-
-
-import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
+    return dice.mean().item()
 
 
 @torch.inference_mode()
@@ -121,20 +101,22 @@ def segmentation_metrics(
         "confusion_matrix": cm.cpu().numpy(),
     }
 
+
 def main():
     from satelliteSegmentation.config import Config
     from satelliteSegmentation.models.unet import UNet
     from satelliteSegmentation.dataset import load_data
-    
+
     conf = Config("cpu")
     model = UNet(conf)
     state = torch.load("checkpoints/baseline_1.pth", map_location=torch.device("cpu"))
     model.load_state_dict(state)
-    
+
     data = load_data("val")
     loader = DataLoader(data, 128)
     results = segmentation_metrics(model, loader, conf.device, conf.num_classes)
     print(results)
+
 
 if __name__ == "__main__":
     main()
