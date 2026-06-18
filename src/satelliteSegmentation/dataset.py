@@ -30,14 +30,14 @@ class SatelliteData(Dataset):
             image = np.array(Image.open(image_path))
             mask = np.array(Image.open(mask_path))
 
-            image = torch.from_numpy(image).float()
-            mask = torch.from_numpy(mask).float()
+            image = torch.from_numpy(image).float() / 255.0
+            mask = torch.from_numpy(mask).long()
 
             X.append(image)
             Y.append(mask)
 
         self.X = torch.stack(X).permute(0, 3, 1, 2)
-        self.Y = torch.stack(Y).unsqueeze(1)
+        self.Y = torch.stack(Y)
         print(f"Dataset cargado:")
         print(f"X shape = {self.X.shape}")
         print(f"Y shape = {self.Y.shape}")
@@ -68,7 +68,10 @@ def load_data(
 
 
 def main():
-    load_data("train")
+    data = load_data("val")
+    x, y = data[0]
+    print(f"Image: {x.shape} | {x.dtype} | min:{x.min()}  max:{x.max()}")
+    print(f"Mask: {y.shape} | {y.dtype} | class:{torch.unique(y)}")
 
 
 if __name__ == "__main__":
