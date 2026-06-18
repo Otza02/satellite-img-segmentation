@@ -135,7 +135,7 @@ def main():
     conf = Config(device="cpu")
     model = UNet(conf)
     print("Prueba para 120x120")
-    x = torch.randn([1, 3, 120, 120])
+    x = torch.randn([4, 3, 120, 120])
     with torch.no_grad():
         result = model(x)
     print(f"Imagen entrada: {x.shape}")
@@ -143,7 +143,7 @@ def main():
     assert x.shape[2:] == result.shape[2:]
     
     print("\nPrueba para 128x128")
-    x = torch.randn([1, 3, 128, 128])
+    x = torch.randn([4, 3, 128, 128])
     with torch.no_grad():
         result = model(x)
     print(f"Imagen entrada: {x.shape}")
