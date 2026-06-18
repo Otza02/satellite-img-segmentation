@@ -148,6 +148,7 @@ def main():
         result = model(x)
     print(f"Imagen entrada: {x.shape}")
     print(f"Imagen salida: {result.shape}")
+    assert x.shape[2:] == result.shape[2:]
 
 
 if __name__ == "__main__":
