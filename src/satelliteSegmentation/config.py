@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class Config:
     # General
     device: str
+    batch_size: int = 128
 
     # Model
     kernel_size: int = 3

@@ -30,8 +30,8 @@ class SatelliteData(Dataset):
             image = np.array(Image.open(image_path))
             mask = np.array(Image.open(mask_path))
 
-            image = torch.from_numpy(image).int()
-            mask = torch.from_numpy(mask).int()
+            image = torch.from_numpy(image).float()
+            mask = torch.from_numpy(mask).float()
 
             X.append(image)
             Y.append(mask)
