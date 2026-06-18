@@ -132,7 +132,7 @@ class UNet(nn.Module):
 
 
 def main():
-    conf = Config()
+    conf = Config(device="cpu")
     model = UNet(conf)
     print("Prueba para 120x120")
     x = torch.randn([1, 3, 120, 120])
