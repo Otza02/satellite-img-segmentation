@@ -1,117 +1,70 @@
+from matplotlib import pyplot as plt
+import seaborn as sns
+import numpy as np
 import torch
-from torch import nn
-from torch.utils.data import DataLoader
-from torch.optim import Optimizer
-from torch.amp.grad_scaler import GradScaler
 
-from satelliteSegmentation.tokenizer import Tokenizer
-from satelliteSegmentation.dataset import Dataset
-from satelliteSegmentation.config import Config
 
-from copy import deepcopy
-from time import time
-
-def run_one_epoch(
-    model: nn.Module,
-    dataloader: DataLoader,
-    criterion: nn.Module,
-    optimizer: Optimizer | None,
-    scaler: GradScaler,
-    config: Config,
+def plot_confusion_matrix(
+    cm: np.ndarray, class_names: list | None = None, normalize: list | None = None
 ):
-    is_training = optimizer is not None
+    cm = np.array(cm)
 
-    if is_training:
-        model.train()
-    else:
-        model.eval()
+    if normalize:
+        cm = cm / (cm.sum(axis=1, keepdims=True) + 1e-7)
 
-    total_loss = 0.0
+    plt.figure(figsize=(8, 6))
 
-    for images, masks in dataloader:
-        images = images.to(config.device, non_blocking=True)
-        masks = masks.to(config.device, non_blocking=True)
+    sns.heatmap(
+        cm,
+        annot=True,
+        fmt=".2f",
+        cmap="Blues",
+        xticklabels=class_names if class_names else range(len(cm)),  # type: ignore
+        yticklabels=class_names if class_names else range(len(cm)),  # type: ignore
+    )
 
-        if is_training:
-            optimizer.zero_grad()
+    plt.xlabel("Predicción")
+    plt.ylabel("Ground Truth")
+    plt.title("Matriz de Confusión (normalizada)")
+    plt.show()
 
-        with torch.enable_grad() if is_training else torch.inference_mode():
-            with torch.autocast(device_type=config.device, dtype=torch.float16):
-                logits = model(images)
-                loss = criterion(logits, masks)
+def plot_class_metrics(dice: list, iou: list, class_names=None):
 
-            if is_training:
-                scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
-                # loss.backward()
-                # optimizer.step()
+    x = np.arange(len(dice))
 
-        total_loss += loss.item()
-    epoch_loss = total_loss / len(dataloader)
+    plt.figure(figsize=(10, 5))
 
-    return epoch_loss
+    plt.plot(x, dice, marker="o", label="Dice")
+    plt.plot(x, iou, marker="o", label="IoU")
+
+    plt.xticks(
+        x,
+        class_names if class_names else [str(i) for i in x]
+    )
+
+    plt.ylim(0, 1)
+    plt.grid(True, alpha=0.3)
+    plt.legend()
+    plt.title("Dice e IoU por clase")
+    plt.xlabel("Clase")
+    plt.ylabel("Score")
+
+    plt.show()
 
 
-def train_model(
-    model: nn.Module,
-    train_loader: DataLoader,
-    val_loader: DataLoader,
-    config: Config,
-):
-    model = model.to(config.device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
-    scaler = GradScaler(config.device)
+def plot_bar_metrics(dice, iou):
+    x = np.arange(len(dice))
+    plt.figure(figsize=(10, 5))
 
-    history = {
-        "train_loss": [],
-        "val_loss": [],
-    }
+    plt.bar(x - 0.2, dice, width=0.4, label="Dice")
+    plt.bar(x + 0.2, iou, width=0.4, label="IoU")
 
-    best_val_loss = float("inf")
-    patience_count = 0
-    best_model = None
-    for epoch in range(config.epochs):
-        start = time()
-        train_loss = run_one_epoch(
-            model=model,
-            dataloader=train_loader,
-            criterion=criterion,
-            optimizer=optimizer,
-            scaler=scaler,
-            config=config,
-        )
+    plt.ylim(0, 1)
+    plt.xticks(x)
+    plt.xlabel("Clase")
+    plt.ylabel("Score")
+    plt.title("Comparación Dice vs IoU por clase")
+    plt.legend()
+    plt.grid(axis="y", alpha=0.3)
 
-        val_loss = run_one_epoch(
-            model=model,
-            dataloader=val_loader,
-            criterion=criterion,
-            optimizer=None,
-            scaler=scaler,
-            config=config,
-        )
-
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-
-        elapsed = time() - start
-        print(
-            f"Epoch {epoch + 1:02d}/{config.epochs} | "
-            f"train_loss={train_loss:<6.4f} | "
-            f"val_loss={val_loss:<6.4f} | "
-            f"time {int(elapsed // 60):02d}:{int(elapsed % 60):02d}"
-        )
-        
-        if val_loss < best_val_loss - config.min_delta:
-            best_val_loss = val_loss
-            patience_count = 0
-            best_model = deepcopy(model.state_dict())
-        else:
-            patience_count += 1
-            if patience_count >= config.patience:
-                print("Early stopping")
-                break
-    
-    model.load_state_dict(best_model) # type: ignore
-    return model, history
+    plt.show()
