@@ -4,8 +4,6 @@ from torch.utils.data import DataLoader
 from torch.optim import Optimizer
 from torch.amp.grad_scaler import GradScaler
 
-from satelliteSegmentation.tokenizer import Tokenizer
-from satelliteSegmentation.dataset import Dataset
 from satelliteSegmentation.config import Config
 
 from copy import deepcopy
@@ -58,11 +56,10 @@ def train_model(
     model: nn.Module,
     train_loader: DataLoader,
     val_loader: DataLoader,
+    criterion: nn.Module,
     config: Config,
 ):
     model = model.to(config.device)
-    criterion = nn.CrossEntropyLoss()
-    nn.L1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=config.lr)
     scaler = GradScaler(config.device)
 
@@ -85,15 +82,14 @@ def train_model(
             config=config,
         )
 
-        # Esto probablemente se reemplaza cuando tenga la funcion de metricas
-        # val_loss = run_one_epoch(
-        #     model=model,
-        #     dataloader=val_loader,
-        #     criterion=criterion,
-        #     optimizer=None,
-        #     scaler=scaler,
-        #     config=config,
-        # )
+        val_loss = run_one_epoch(
+            model=model,
+            dataloader=val_loader,
+            criterion=criterion,
+            optimizer=None,
+            scaler=scaler,
+            config=config,
+        )
 
         history["train_loss"].append(train_loss)
         history["val_loss"].append(val_loss)

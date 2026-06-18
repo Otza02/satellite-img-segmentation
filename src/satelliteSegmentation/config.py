@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from torch import Tensor
 
 
 @dataclass
@@ -20,3 +21,4 @@ class Config:
     lr: float = 1e-4
     patience: int = 5
     min_delta: float = 1e-3
+    weights: Tensor | None = None
