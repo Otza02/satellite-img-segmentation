@@ -29,24 +29,6 @@ def plot_confusion_matrix(cm: np.ndarray):
     plt.show()
 
 
-def plot_class_metrics(dice: list, iou: list):
-    class_names = [IDX2LABEL[i] for i in range(len(IDX2LABEL))]
-    x = np.arange(len(class_names))
-    plt.figure(figsize=(12, 5))
-
-    plt.plot(x, dice, marker="o", label="Dice")
-    plt.plot(x, iou, marker="o", label="IoU")
-
-    plt.xticks(x, class_names, rotation=45, ha="right")
-    plt.ylim(0, 1)
-    plt.grid(True, alpha=0.3)
-
-    plt.legend()
-    plt.title("Dice e IoU por clase")
-    plt.tight_layout()
-    plt.show()
-
-
 def plot_bar_metrics(dice, iou):
     class_names = [IDX2LABEL[i] for i in range(len(IDX2LABEL))]
     x = np.arange(len(class_names))
