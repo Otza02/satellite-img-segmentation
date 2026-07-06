@@ -1,42 +1,38 @@
 from torch.utils.data.dataset import Dataset
-from zipfile import ZipFile
-from pathlib import Path
-from typing import Literal
 from pathlib import Path
 from tqdm import tqdm
 
 import torch
 from torch.utils.data import Dataset
+from torchvision.io import decode_image
+import torchvision.transforms as TF
+from torchvision.transforms import v2
+from torchvision import tv_tensors
 
-import numpy as np
 from PIL import Image
 
 
 class SatelliteData(Dataset):
-    def __init__(self, images_dir: str | Path, masks_dir: str | Path):
-        images_dir = Path(images_dir) if isinstance(images_dir, str) else images_dir
-        masks_dir = Path(masks_dir) if isinstance(masks_dir, str) else masks_dir
+    def __init__(
+        self,
+        data_dir: str | Path = "data/train",
+        transform: v2.Compose | None = None,
+    ):
+        self.tf = transform
+        data_dir = Path(data_dir) if isinstance(data_dir, str) else data_dir
+        images_dir = data_dir / "images"
+        masks_dir = data_dir / "masks"
+        to_tensor = TF.ToTensor()
         X = []
         Y = []
-        image_paths = sorted(images_dir.glob("*.tif"))
-        for image_path in tqdm(image_paths):
-            if not image_path.stem.startswith("tile"):
-                continue
+        for file_name in tqdm(images_dir.glob("*.tif")):
+            img = to_tensor(Image.open(file_name))
+            X.append(img)
 
-            mask_path = masks_dir / f"{image_path.stem}.png"
-            if not mask_path.exists():
-                raise FileNotFoundError(f"No existe la máscara para {image_path.name}")
+            msk = decode_image(masks_dir / f"{file_name.stem}.png").squeeze(0)  # type: ignore
+            Y.append(msk)
 
-            image = np.array(Image.open(image_path))
-            mask = np.array(Image.open(mask_path))
-
-            image = torch.from_numpy(image).float() / 255.0
-            mask = torch.from_numpy(mask).long()
-
-            X.append(image)
-            Y.append(mask)
-
-        self.X = torch.stack(X).permute(0, 3, 1, 2)
+        self.X = torch.stack(X)
         self.Y = torch.stack(Y)
         print(f"Dataset cargado:")
         print(f"X shape = {self.X.shape}")
@@ -45,33 +41,32 @@ class SatelliteData(Dataset):
     def __len__(self):
         return len(self.X)
 
-    def __getitem__(self, idx):
-        return self.X[idx], self.Y[idx]
-
-
-def load_data(
-    folder: Literal["train", "val", "test"],
-    base_path: str | Path = "data/processed",
-):
-    base = Path(base_path) if isinstance(base_path, str) else base_path
-    path = base / str(folder)
-
-    images = path / "images"
-    if not Path.exists(images):
-        raise Exception(f"No se encontró el directorio '{images}'")
-
-    masks = path / "masks_id"
-    if not Path.exists(masks):
-        raise Exception(f"No se encontró el directorio '{masks}'")
-
-    return SatelliteData(images, masks)
+    def __getitem__(self, idx) -> tuple[tv_tensors.Image, tv_tensors.Mask]:
+        img, msk = tv_tensors.Image(self.X[idx]), tv_tensors.Mask(self.Y[idx])
+        if self.tf is not None:
+            return self.tf(img, msk)
+        return img, msk
 
 
 def main():
-    data = load_data("val")
+    from matplotlib import pyplot as plt
+    from satelliteSegmentation.tokenizer import Tokenizer
+
+    tf = v2.Compose(
+        [
+            v2.RandomHorizontalFlip(),
+            v2.RandomVerticalFlip(),
+            v2.RandomRotation([0, 180], fill=6),
+        ]
+    )
+
+    data = SatelliteData(transform=tf)
     x, y = data[0]
-    print(f"Image: {x.shape} | {x.dtype} | min:{x.min()}  max:{x.max()}")
-    print(f"Mask: {y.shape} | {y.dtype} | class:{torch.unique(y)}")
+
+    fig, ax = plt.subplots(1, 2)
+    ax[0].imshow(x.permute(1, 2, 0))
+    ax[1].imshow(Tokenizer.id2color(y).permute(1, 2, 0))
+    plt.show()
 
 
 if __name__ == "__main__":
