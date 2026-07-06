@@ -39,6 +39,7 @@ class Tokenizer:
 
     @staticmethod
     def id2color(mask: Tensor) -> Tensor:
+        "Returns a mask of shape [3, W, H]"
         mask = mask.squeeze(0)
         h, w = mask.shape
         colors = torch.zeros((3, h, w), dtype=torch.uint8, device=mask.device)
@@ -49,6 +50,11 @@ class Tokenizer:
                 colors[c][matches] = color[c]
 
         return colors
+    
+    @staticmethod
+    def id2color_plt(mask: Tensor):
+        "Returns a mask of shape [W, H, 3]"
+        return Tokenizer.id2color(mask).permute(1, 2, 0)
 
     @staticmethod
     def id2name(id: int) -> str:
