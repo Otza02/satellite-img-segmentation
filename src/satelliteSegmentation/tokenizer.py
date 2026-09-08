@@ -67,7 +67,7 @@ def main():
     from matplotlib import pyplot as plt
 
     mask = torch.from_numpy(
-        np.array(Image.open("data/processed/test/masks/tile_5.37_17.png"))
+        np.array(Image.open("data/final/test/masks/tile_5.37_17.png"))
     ).permute(2, 0, 1)
 
     mask_idx = Tokenizer.color2id(mask)

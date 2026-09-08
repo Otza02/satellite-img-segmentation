@@ -105,14 +105,14 @@ def segmentation_metrics(
 def main():
     from satelliteSegmentation.config import Config
     from satelliteSegmentation.models.unet import UNet
-    from satelliteSegmentation.dataset import load_data
+    from satelliteSegmentation.dataset import SatelliteData
 
     conf = Config("cpu")
     model = UNet(conf)
     state = torch.load("checkpoints/baseline_1.pth", map_location=torch.device("cpu"))
     model.load_state_dict(state)
 
-    data = load_data("val")
+    data = SatelliteData()
     loader = DataLoader(data, 128)
     results = segmentation_metrics(model, loader, conf.device, conf.num_classes)
     print(results)

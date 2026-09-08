@@ -21,6 +21,7 @@ class SatelliteData(Dataset):
         data_dir = Path(data_dir) if isinstance(data_dir, str) else data_dir
         images_dir = data_dir / "images"
         masks_dir = data_dir / "masks"
+
         to_tensor = TF.ToTensor()
         X = []
         Y = []
@@ -59,7 +60,8 @@ def main():
         ]
     )
 
-    data = SatelliteData(transform=tf)
+    data_folder = Path("data/final/train")
+    data = SatelliteData(data_folder, transform=tf)
     x, y = data[0]
 
     fig, ax = plt.subplots(1, 2)
