@@ -31,18 +31,14 @@ def extract_zip(zip_path: str, raw_path: str | Path = "data/raw"):
         for file in tqdm(
             filter(lambda txt: not Path(txt).name.startswith("jp"), images_list)
         ):
-            with z.open(file, "r") as f_read, open(
-                images_path / Path(file).name, "wb"
-            ) as f_write:
+            with z.open(file, "r") as f_read, open(images_path / Path(file).name, "wb") as f_write:  # fmt: skip
                 shutil.copyfileobj(f_read, f_write)
         print("Imagenes extraidas con exito")
 
         for file in tqdm(
             filter(lambda txt: not Path(txt).name.startswith("jp"), masks_list)
         ):
-            with z.open(file, "r") as f_read, open(
-                masks_path / Path(file).name, "wb"
-            ) as f_write:
+            with z.open(file, "r") as f_read, open(masks_path / Path(file).name, "wb") as f_write:  # fmt: skip
                 shutil.copyfileobj(f_read, f_write)
         print("Mascaras extraidas con exito")
 
@@ -51,6 +47,10 @@ def masks_to_id(
     masks_path: str | Path = "data/raw/masks",
     masks_id_path: str | Path = "data/processed/masks_id",
 ):
+    """
+    Convierte mascaras en rgb a mascara de id por clase. (28x28x3) -> (28x28x1). <br>
+    Guarda las imagenes en la carpeta `masks_id_path`
+    """
     masks_path = Path(masks_path) if isinstance(masks_path, str) else masks_path
     masks_id_path = (
         Path(masks_id_path) if isinstance(masks_id_path, str) else masks_id_path
@@ -71,18 +71,19 @@ def _frecuencies(masks_id: Path):
     histograms = []
     images = []
     # Conteo de frecuencias
-    for image_path in masks_id.glob("*.png"):
-        mask = decode_image(image_path) # type: ignore
+    for mask_path in masks_id.glob("*.png"):
+        mask = decode_image(mask_path)  # type: ignore
 
         hist = torch.bincount(mask.flatten(), minlength=7).float()
 
         hist /= hist.sum()
 
         histograms.append(hist)
-        images.append(image_path)
+        images.append(mask_path)
 
     df = pd.DataFrame(
-        torch.stack(histograms).numpy(), columns=[f"class_{i}" for i in range(7)]
+        torch.stack(histograms).numpy(),
+        columns=[f"class_{i}" for i in range(7)],
     )
 
     df["image"] = images
@@ -90,7 +91,7 @@ def _frecuencies(masks_id: Path):
     return df
 
 
-def _compute_distribution(paths):
+def _compute_distribution(paths: list[torch.Tensor]):
     counts = torch.zeros(7)
 
     for path in paths:
@@ -110,15 +111,19 @@ def final_zip(
 
     df = _frecuencies(proc_path / "masks_id")
     train_df, test_df = train_test_split(
-        df, test_size=0.2, random_state=2026, stratify=df["class5_bin"]
+        df,
+        test_size=0.2,
+        random_state=2026,
+        stratify=df["class5_bin"],
     )
     print("Final distributions")
     print(f" Distribucion train: {_compute_distribution(train_df["image"].values)}")
     print(f" Distribucion test: {_compute_distribution(test_df["image"].values)}")
 
+    # move train set
     train_images_dir = final_path / "train" / "images"
     train_images_dir.mkdir(exist_ok=True, parents=True)
-    
+
     train_masks_dir = final_path / "train" / "masks"
     train_masks_dir.mkdir(exist_ok=True, parents=True)
     print("Moviendo imagenes a final/train")
@@ -127,10 +132,11 @@ def final_zip(
         msk_name = msk.name
         shutil.move(proc_path / "images" / img_name, train_images_dir / img_name)
         shutil.move(proc_path / "masks_id" / msk_name, train_masks_dir / msk_name)
-    
+
+    # move test set
     test_images_dir = final_path / "test" / "images"
     test_images_dir.mkdir(exist_ok=True, parents=True)
-    
+
     test_masks_dir = final_path / "test" / "masks"
     test_masks_dir.mkdir(exist_ok=True, parents=True)
     print("Moviendo imagenes a final/test")
@@ -139,18 +145,24 @@ def final_zip(
         msk_name = msk.name
         shutil.move(proc_path / "images" / img_name, test_images_dir / img_name)
         shutil.move(proc_path / "masks_id" / msk_name, test_masks_dir / msk_name)
-    
-    shutil.make_archive(final_path / "train", "zip", final_path) # type: ignore
-    shutil.make_archive(final_path / "test", "zip", final_path) # type: ignore
+
+    shutil.make_archive("data/train", "zip", final_path / "train")
+    shutil.make_archive("data/test", "zip", final_path / "test")
+
 
 def main():
     extract_zip("data/mumbai_raw.zip")
     masks_to_id()
     proc_folder = Path("data/processed")
     proc_folder.mkdir(exist_ok=True)
+    # mover la carpeta /images completa a /processed
     shutil.move("data/raw/images", proc_folder)
-    
+
     final_zip(proc_folder, "data/final")
+    
+    shutil.rmtree("data/raw")
+    shutil.rmtree("data/processed")
+
 
 if __name__ == "__main__":
     main()

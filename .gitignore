@@ -217,7 +217,9 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-/data/processed/
+data/raw/*
+data/processed/*
+data/final/*
 *.tif
 *.png
 
