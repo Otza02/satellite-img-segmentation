@@ -12,27 +12,24 @@ class UNet(nn.Module):
             config.in_channels,
             list(config.hidden_channels),
             config.kernel_size,
-            config.stride,
         )
 
         self.bottleneck = Block(
             config.hidden_channels[-1],
             config.bottleneck_channels,
             config.kernel_size,
-            config.stride,
         )
 
         self.decoder = Decoder(
             config.bottleneck_channels,
             list(reversed(config.hidden_channels)),
             config.kernel_size,
-            config.stride,
         )
 
         self.classifier = nn.Conv2d(
             config.hidden_channels[0],
             config.num_classes,
-            1
+            1,
             # config.kernel_size,
             # config.stride,
             # (config.kernel_size - 1) // 2
@@ -55,7 +52,7 @@ def main():
     print(f"Imagen entrada: {x.shape}")
     print(f"Imagen salida: {result.shape}")
     assert x.shape[2:] == result.shape[2:]
-    
+
     print("\nPrueba para 128x128")
     x = torch.randn([4, 3, 128, 128])
     with torch.no_grad():

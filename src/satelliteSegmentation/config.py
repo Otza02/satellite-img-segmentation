@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 from torch import Tensor
 
 
@@ -6,19 +6,23 @@ from torch import Tensor
 class Config:
     # General
     device: str
-    batch_size: int = 128
 
     # Model
     kernel_size: int = 3
-    stride: int = 1
     in_channels: int = 3
     hidden_channels: tuple[int, ...] = (64, 128, 256, 512)
     bottleneck_channels: int = 1024
     num_classes: int = 7
 
     # Train
-    epochs: int = 20
+    epochs: int = 100
     lr: float = 1e-4
-    patience: int = 5
+    patience: int = 10
     min_delta: float = 1e-3
     weights: Tensor | None = None
+
+    def to_json(self):
+        data = asdict(self)
+        if self.weights is not None:
+            data["weights"] = self.weights.detach().cpu().tolist()
+        return data

@@ -26,6 +26,7 @@ def run_one_epoch(
         model.eval()
 
     total_loss = 0.0
+    total_samples = 0
 
     for images, masks in dataloader:
         images = images.to(config.device, non_blocking=True)
@@ -39,6 +40,12 @@ def run_one_epoch(
                 logits = model(images)
                 loss = criterion(logits, masks)
 
+            if not torch.isfinite(loss):
+                # Un batch cuyos targets son enteramente ignore_index deja a
+                # CrossEntropyLoss(reduction="mean") sin elementos válidos y
+                # devuelve NaN. Se descarta el batch (sin backward/optimizer.step)
+                continue
+
             if is_training:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
@@ -46,10 +53,11 @@ def run_one_epoch(
                 # loss.backward()
                 # optimizer.step()
 
-        total_loss += loss.item()
-    epoch_loss = total_loss / len(dataloader)
+        batch_size = images.shape[0]
+        total_loss += loss.item() * batch_size
+        total_samples += batch_size
 
-    return epoch_loss
+    return total_loss / total_samples if total_samples > 0 else float("nan")
 
 
 def train_model(
@@ -112,5 +120,11 @@ def train_model(
                 print("Early stopping")
                 break
 
-    model.load_state_dict(best_model)  # type: ignore
+    if best_model is not None:
+        model.load_state_dict(best_model)
+    else:
+        print(
+            "Advertencia: ningún checkpoint superó val_loss inicial; "
+            "se conserva el modelo del último epoch en lugar de un best_model."
+        )
     return model, history

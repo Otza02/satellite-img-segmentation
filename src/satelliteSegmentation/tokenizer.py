@@ -27,13 +27,18 @@ class Tokenizer:
     @staticmethod
     def color2id(mask: Tensor) -> Tensor:
         h, w = mask.shape[1:]
-        ids = torch.empty((h, w), dtype=torch.float, device=mask.device)
+        ids = torch.full((h, w), -1, dtype=torch.long, device=mask.device)
 
         for col, idx in COLOR2IDX.items():
             color = torch.tensor(col, dtype=mask.dtype, device=mask.device).view(3, 1, 1)
 
             matches = (mask == color).all(dim=0)
             ids[matches] = idx
+
+        if bool((ids == -1).any()):
+            raise ValueError(
+                "color2id: se encontraron píxeles con un color que no está en COLOR2IDX"
+            )
 
         return ids
 
@@ -50,7 +55,7 @@ class Tokenizer:
                 colors[c][matches] = color[c]
 
         return colors
-    
+
     @staticmethod
     def id2color_plt(mask: Tensor):
         "Returns a mask of shape [W, H, 3]"
