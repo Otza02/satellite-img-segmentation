@@ -15,10 +15,8 @@ class SatelliteData(Dataset):
     def __init__(
         self,
         data_dir: str | Path = "data/train",
-        transform: v2.Compose | None = None,
         lazy: bool = False,
     ):
-        self.tf = transform
         self.lazy = lazy
         data_dir = Path(data_dir) if isinstance(data_dir, str) else data_dir
         self.images_dir = data_dir / "images"
@@ -69,6 +67,33 @@ class SatelliteData(Dataset):
             img, msk = self.X[idx], self.Y[idx]  # type: ignore
 
         img, msk = tv_tensors.Image(img), tv_tensors.Mask(msk)
+        return img, msk
+
+
+class AugmentedSubset(Dataset):
+    """
+    Envuelve un subconjunto de índices de un `SatelliteData` con su propio
+    `transform`.
+    """
+
+    def __init__(
+        self,
+        dataset: SatelliteData,
+        indices: list[int],
+        transform: v2.Compose | None = None,
+    ):
+        self.dataset = dataset
+        self.indices = indices
+        self.tf = transform
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx) -> tuple[tv_tensors.Image, tv_tensors.Mask]:
+        real_idx = self.indices[idx]
+        img, msk = self.dataset[real_idx]
+
+        img, msk = tv_tensors.Image(img), tv_tensors.Mask(msk)
         if self.tf is not None:
             return self.tf(img, msk)
         return img, msk
@@ -116,7 +141,7 @@ def main():
     from matplotlib import pyplot as plt
     from satelliteSegmentation.tokenizer import Tokenizer
 
-    tf = v2.Compose(
+    train_tf = v2.Compose(
         [
             v2.RandomHorizontalFlip(),
             v2.RandomVerticalFlip(),
@@ -125,8 +150,13 @@ def main():
     )
 
     data_folder = Path("data/final/train")
-    data = SatelliteData(data_folder, transform=tf)
-    x, y = data[0]
+    data = SatelliteData(data_folder)
+
+    train_idx, val_idx = spatial_train_val_split(data)
+    train = AugmentedSubset(data, train_idx, transform=train_tf)
+    val = AugmentedSubset(data, val_idx, transform=None)
+
+    x, y = train[0]
 
     fig, ax = plt.subplots(1, 2)
     ax[0].imshow(x.permute(1, 2, 0))

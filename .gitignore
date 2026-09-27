@@ -224,3 +224,5 @@ data/final/*
 *.png
 
 data/*.zip
+checkpoints/*
+results/*
