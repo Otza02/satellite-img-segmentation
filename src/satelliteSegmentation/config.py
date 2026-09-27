@@ -20,6 +20,7 @@ class Config:
     patience: int = 10
     min_delta: float = 1e-3
     weights: Tensor | None = None
+    weight_decay: float = 0.01
 
     def to_json(self):
         data = asdict(self)
