@@ -68,7 +68,7 @@ def train_model(
     config: Config,
 ):
     model = model.to(config.device)
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config.lr, weight_decay=config.weight_decay)
     scaler = GradScaler(config.device)
 
     history = {
