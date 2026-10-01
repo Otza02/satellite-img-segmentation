@@ -81,10 +81,12 @@ class AugmentedSubset(Dataset):
         dataset: SatelliteData,
         indices: list[int],
         transform: v2.Compose | None = None,
+        color_transform: v2.Compose | None = None
     ):
         self.dataset = dataset
         self.indices = indices
         self.tf = transform
+        self.color_tf = color_transform
 
     def __len__(self):
         return len(self.indices)
@@ -95,7 +97,10 @@ class AugmentedSubset(Dataset):
 
         img, msk = tv_tensors.Image(img), tv_tensors.Mask(msk)
         if self.tf is not None:
-            return self.tf(img, msk)
+            img_tf, msk_tf = self.tf(img, msk)
+            if self.color_tf is not None:
+                return self.color_tf(img_tf), msk_tf
+            return img_tf, msk_tf
         return img, msk
 
 
