@@ -39,7 +39,12 @@ def dice_score(
 
 @torch.inference_mode()
 def segmentation_metrics(
-    model: nn.Module, loader: DataLoader, device: str, num_classes: int, eps: float = 1e-7
+    model: nn.Module,
+    loader: DataLoader,
+    device: str,
+    num_classes: int,
+    ignore_index: int | None = 6,   # clase Unlabelled
+    eps: float = 1e-7,
 ):
     model.eval()
 
@@ -60,6 +65,8 @@ def segmentation_metrics(
         masks = masks.view(-1)
 
         valid = (masks >= 0) & (masks < num_classes)
+        if ignore_index is not None:
+            valid &= masks != ignore_index   # descarta los píxeles Unlabelled
 
         preds = preds[valid]
         masks = masks[valid]
@@ -86,8 +93,12 @@ def segmentation_metrics(
     # Dice
     dice = (2 * tp) / (2 * tp + fp + fn + eps)
 
-    # Ignorar clases ausentes
+    # Ignorar clases ausentes y la clase ignorada en los promedios
     valid_classes = (tp + fp + fn) > 0
+    if ignore_index is not None:
+        valid_classes[ignore_index] = False
+        iou[ignore_index] = float("nan")
+        dice[ignore_index] = float("nan")
 
     miou = iou[valid_classes].mean()
     mean_dice = dice[valid_classes].mean()

@@ -2,9 +2,10 @@ from pathlib import Path
 from tqdm import tqdm
 
 import torch
-from torch.utils.data import Dataset
-from torchvision.io import decode_image
+from torch.utils.data import Dataset, DataLoader
+
 import torchvision.transforms as TF
+from torchvision.io import decode_image
 from torchvision.transforms import v2
 from torchvision import tv_tensors
 
@@ -81,7 +82,7 @@ class AugmentedSubset(Dataset):
         dataset: SatelliteData,
         indices: list[int],
         transform: v2.Compose | None = None,
-        color_transform: v2.Compose | None = None
+        color_transform: v2.Compose | None = None,
     ):
         self.dataset = dataset
         self.indices = indices
@@ -140,6 +141,78 @@ def spatial_train_val_split(
     train_idx = [i for i in range(n) if i not in val_idx]
     val_idx_sorted = [i for i in range(n) if i in val_idx]
     return train_idx, val_idx_sorted
+
+
+def spatial_kfold_indices(
+    n: int,
+    k: int = 5,
+    n_blocks: int = 20,
+) -> list[tuple[list[int], list[int]]]:
+    """
+    Devuelve k pares (train_idx, val_idx) para cross validation.
+
+    Igual que `spatial_train_val_split`, trabaja con bloques contiguos del orden
+    (determinista) de archivos en vez de tiles sueltos, para reducir la fuga
+    espacial entre train y val. Los bloques se mezclan con `seed` y se reparten
+    entre los k folds, de modo que cada tile aparece en validación exactamente
+    una vez y los folds quedan de tamaño parecido.
+    """
+    if k < 2:
+        raise ValueError("k debe ser >= 2")
+    n_blocks = min(n_blocks, n)
+    # n_blocks bloques contiguos de tamaño casi igual (difieren a lo sumo en 1)
+    blocks = [
+        list(range(b * n // n_blocks, (b + 1) * n // n_blocks)) for b in range(n_blocks)
+    ]
+    if len(blocks) < k:
+        raise ValueError(
+            f"Hay {len(blocks)} bloques y se pidieron {k} folds: subí n_blocks o bajá k"
+        )
+
+    order = list(range(len(blocks)))
+
+    folds = []
+    for f in range(k):
+        val_blocks = set(order[f::k])
+        val_idx = [i for b in sorted(val_blocks) for i in blocks[b]]
+        val_set = set(val_idx)
+        train_idx = [i for i in range(n) if i not in val_set]
+        folds.append((train_idx, val_idx))
+    return folds
+
+
+def kfold_loaders(
+    dataset: SatelliteData,
+    k: int = 5,
+    batch_size: int = 32,
+    shape_transform: v2.Compose | None = None,
+    color_transform: v2.Compose | None = None,
+    n_blocks: int = 20,
+    **loader_kwargs,
+):
+    """
+    Generador que rinde `(fold, train_loader, val_loader)` para cada uno de los k
+    folds, reutilizando SIEMPRE la misma instancia de `SatelliteData`.
+
+        for fold, train_loader, val_loader in kfold_loaders(data, k=5):
+            ...
+
+    `shape_transform` se aplica solo al loader de train. `loader_kwargs` se pasa
+    a ambos DataLoader (num_workers, pin_memory, etc.).
+    """
+    for fold, (train_idx, val_idx) in enumerate(
+        spatial_kfold_indices(len(dataset), k, n_blocks)
+    ):
+        train = AugmentedSubset(dataset, train_idx, shape_transform, color_transform)
+        val = AugmentedSubset(dataset, val_idx)
+        train_loader = DataLoader(
+            train,
+            batch_size=batch_size,
+            shuffle=True,
+            **loader_kwargs,
+        )
+        val_loader = DataLoader(val, batch_size=batch_size, **loader_kwargs)
+        yield fold, train_loader, val_loader
 
 
 def main():
