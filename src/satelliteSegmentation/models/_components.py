@@ -88,3 +88,72 @@ class Decoder(nn.Module):
             x = block(x)
 
         return x
+
+
+class AttentionGate(nn.Module):
+    def __init__(self, gate_channels: int, skip_channels: int, inter_channels: int):
+        super().__init__()
+
+        self.w_g = nn.Sequential(
+            nn.Conv2d(gate_channels, inter_channels, 1),
+            nn.BatchNorm2d(inter_channels),
+        )
+        self.w_x = nn.Sequential(
+            nn.Conv2d(skip_channels, inter_channels, 1),
+            nn.BatchNorm2d(inter_channels),
+        )
+        self.psi = nn.Sequential(
+            nn.Conv2d(inter_channels, 1, 1),
+            nn.BatchNorm2d(1),
+            nn.Sigmoid(),
+        )
+        self.relu = nn.ReLU(True)
+
+        # Ultimo mapa de atención calculado ([B, 1, H, W]).
+        # Se sobreescribe en cada forward, no se guarda en state_dict.
+        self.last_attention: torch.Tensor | None = None
+
+    def forward(self, g: torch.Tensor, x: torch.Tensor):
+        if g.shape[2:] != x.shape[2:]:
+            g = F.interpolate(g, size=x.shape[2:])
+
+        a = self.relu(self.w_g(g) + self.w_x(x))
+        attention = self.psi(a)
+        self.last_attention = attention.detach()
+        return x * attention
+
+
+class AttentionDecoder(nn.Module):
+    def __init__(
+        self,
+        in_channel: int,
+        hidden_channels: list[int],
+        kernel_size: int = 3,
+        stride: int = 1,
+    ):
+        super().__init__()
+        self.blocks = nn.ModuleList()
+        self.up_pools = nn.ModuleList()
+        self.gates = nn.ModuleList()
+
+        last_channel = in_channel
+        for channel in hidden_channels:
+            self.up_pools.append(nn.ConvTranspose2d(last_channel, channel, 2, 2))
+            # up y skip tienen `channel` canales; el espacio intermedio es la mitad
+            self.gates.append(AttentionGate(channel, channel, max(1, channel // 2)))
+            self.blocks.append(Block(channel * 2, channel, kernel_size, stride))
+            last_channel = channel
+
+    def forward(self, x: torch.Tensor, skip_conn: list[torch.Tensor]):
+        for up, gate, block, skip in zip(
+            self.up_pools, self.gates, self.blocks, reversed(skip_conn)
+        ):
+            x = up(x)
+            if x.shape[2:] != skip.shape[2:]:
+                x = F.interpolate(x, size=skip.shape[2:])
+
+            skip = gate(g=x, x=skip)
+            x = torch.cat([x, skip], dim=1)
+            x = block(x)
+
+        return x

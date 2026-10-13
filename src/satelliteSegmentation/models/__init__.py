@@ -1,1 +1,2 @@
 from satelliteSegmentation.models.unet import UNet
+from satelliteSegmentation.models.attention_unet import AttentionUNet
