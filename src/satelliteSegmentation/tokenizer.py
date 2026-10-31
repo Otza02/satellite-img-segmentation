@@ -22,6 +22,16 @@ IDX2COLOR = {
 COLOR2IDX = {col: idx for idx, col in IDX2COLOR.items()}
 IDX2LABEL = {idx: COLOR2LABEL[col] for idx, col in IDX2COLOR.items()}
 
+NICECOLOR = {
+    0: "#f73e3e",  # Informal Settlements   | Asentamiento
+    1: "#ff8c00",  # Built-Up               | Urbano
+    2: "#808080",  # Impervious Surfaces    | Calle
+    3: "#2e8b57",  # Vegetation             | Vegetación
+    4: "#d2b48c",  # Barren                 | Baldío
+    5: "#1f8fff",  # Water                  | Agua
+    6: "#000000",  # Unlabelled             | Sin-Marcar
+}
+
 
 class Tokenizer:
     @staticmethod

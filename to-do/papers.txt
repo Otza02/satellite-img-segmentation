@@ -1,0 +1,2 @@
+
+Attention gate aditiva (Oktay et al., 2018, "Attention U-Net").
